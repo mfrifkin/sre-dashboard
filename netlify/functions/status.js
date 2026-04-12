@@ -1,20 +1,22 @@
+// IDs sourced from each company's public status page URL
+// Format: https://{id}.statuspage.io OR their custom domain which embeds the ID
 const PAGES = [
-  { name: "GitHub",     id: "kctbh9vrtdwd" },
-  { name: "Cloudflare", id: "yh6f0r4529hb" },
-  { name: "Atlassian",  id: "bqlf2pcfz5c4" },
-  { name: "Stripe",     id: "ybjz9bfx5mbb" },
-  { name: "Twilio",     id: "gpkpykbmm5vv" },
-  { name: "PagerDuty",  id: "rk3v07m7b16f" },
-  { name: "Datadog",    id: "1k6wzpspjf99" },
-  { name: "Fastly",     id: "979tzdkwy299" },
-  { name: "Sendgrid",   id: "3tgl2vf85cht" },
-  { name: "HubSpot",    id: "hsml1814ql3g" },
+  { name: "GitHub",      url: "https://www.githubstatus.com" },
+  { name: "Cloudflare",  url: "https://www.cloudflarestatus.com" },
+  { name: "Atlassian",   url: "https://status.atlassian.com" },
+  { name: "Stripe",      url: "https://status.stripe.com" },
+  { name: "Twilio",      url: "https://status.twilio.com" },
+  { name: "PagerDuty",   url: "https://status.pagerduty.com" },
+  { name: "Datadog",     url: "https://status.datadoghq.com" },
+  { name: "Fastly",      url: "https://www.fastlystatus.com" },
+  { name: "Discord",     url: "https://discordstatus.com" },
+  { name: "HubSpot",     url: "https://status.hubspot.com" },
 ];
 
 exports.handler = async () => {
   const results = await Promise.allSettled(
     PAGES.map(async (page) => {
-      const base = `https://${page.id}.statuspage.io/api/v2`;
+      const base = `${page.url}/api/v2`;
       const [sumRes, incRes] = await Promise.all([
         fetch(`${base}/summary.json`),
         fetch(`${base}/incidents/unresolved.json`),
