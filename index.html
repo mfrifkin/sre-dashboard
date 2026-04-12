@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Production Incident Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --surface2: #f1f3f5;
+      --border: rgba(0,0,0,0.08);
+      --border-strong: rgba(0,0,0,0.15);
+      --text: #111827;
+      --text-secondary: #6b7280;
+      --text-tertiary: #9ca3af;
+      --blue: #1a6fff;
+      --blue-bg: #eff6ff;
+      --blue-text: #1d4ed8;
+      --green: #16a34a;
+      --green-bg: #f0fdf4;
+      --green-text: #15803d;
+      --yellow: #ca8a04;
+      --yellow-bg: #fefce8;
+      --yellow-text: #a16207;
+      --red: #dc2626;
+      --red-bg: #fef2f2;
+      --red-text: #b91c1c;
+      --orange: #ea580c;
+      --orange-bg: #fff7ed;
+      --orange-text: #c2410c;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1117;
+        --surface: #1a1d27;
+        --surface2: #22263a;
+        --border: rgba(255,255,255,0.08);
+        --border-strong: rgba(255,255,255,0.15);
+        --text: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --text-tertiary: #64748b;
+        --blue-bg: #1e3a5f;
+        --blue-text: #93c5fd;
+        --green-bg: #14532d;
+        --green-text: #86efac;
+        --yellow-bg: #422006;
+        --yellow-text: #fde68a;
+        --red-bg: #450a0a;
+        --red-text: #fca5a5;
+        --orange-bg: #431407;
+        --orange-text: #fed7aa;
+      }
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 36px; height: 36px;
+      background: var(--blue);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo svg { width: 20px; height: 20px; stroke: white; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    h1 { font-size: 18px; font-weight: 600; color: var(--text); }
+    .tagline { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--green);
+      background: var(--green-bg);
+      padding: 4px 10px; border-radius: 99px;
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+    /* Metrics */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 2rem;
+    }
+    @media(max-width:600px){ .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .metric {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 6px; }
+    .metric-value { font-size: 26px; font-weight: 600; color: var(--text); }
+    .metric-value.ok { color: var(--green); }
+    .metric-value.warn { color: var(--yellow); }
+    .metric-value.crit { color: var(--red); }
+
+    /* Sections */
+    .section { margin-bottom: 2rem; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .section-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Filters */
+    .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .filter-btn {
+      font-size: 12px; padding: 4px 12px;
+      border: 0.5px solid var(--border-strong);
+      border-radius: 99px;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover { background: var(--surface2); }
+    .filter-btn.active { background: var(--blue-bg); color: var(--blue-text); border-color: transparent; }
+
+    /* Incidents */
+    .incident-list { display: flex; flex-direction: column; gap: 6px; }
+    .incident {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .inc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+    .inc-dot.critical { background: var(--red); }
+    .inc-dot.major    { background: var(--orange); }
+    .inc-dot.minor    { background: var(--yellow); }
+    .inc-dot.none     { background: var(--green); }
+    .inc-body { flex: 1; min-width: 0; }
+    .inc-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inc-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .inc-badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; flex-shrink: 0; font-weight: 500; }
+    .inc-badge.critical { background: var(--red-bg);    color: var(--red-text); }
+    .inc-badge.major    { background: var(--orange-bg); color: var(--orange-text); }
+    .inc-badge.minor    { background: var(--yellow-bg); color: var(--yellow-text); }
+    .inc-badge.none     { background: var(--green-bg);  color: var(--green-text); }
+
+    /* Company grid */
+    .company-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+    }
+    .company-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+    }
+    .company-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .company-status { font-size: 12px; margin-top: 4px; }
+    .company-status.ok       { color: var(--green); }
+    .company-status.degraded { color: var(--yellow); }
+    .company-status.outage   { color: var(--red); }
+
+    /* States */
+    .empty, .loading, .error {
+      font-size: 13px;
+      padding: 20px;
+      text-align: center;
+      border-radius: var(--radius);
+    }
+    .empty   { color: var(--text-tertiary); background: var(--surface); border: 0.5px solid var(--border); }
+    .loading { color: var(--text-secondary); }
+    .error   { color: var(--red-text); background: var(--red-bg); }
+
+    /* Footer */
+    footer {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 2rem; flex-wrap: wrap; gap: 8px;
+    }
+    .last-updated { font-size: 11px; color: var(--text-tertiary); }
+    .refresh-btn {
+      font-size: 12px; padding: 5px 14px;
+      border: 0.5px solid var(--border-strong);
+      border-radius: 99px;
+      background: transparent; color: var(--text-secondary);
+      cursor: pointer; transition: background 0.15s;
+    }
+    .refresh-btn:hover { background: var(--surface2); }
+    .refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Skeleton loader */
+    .skeleton { background: var(--surface2); border-radius: var(--radius); animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0%,100%{opacity:0.6;} 50%{opacity:1;} }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-left">
+      <div class="logo">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div>
+        <h1>Production incident monitor</h1>
+        <div class="tagline">Live data from public status pages · Built with Netlify Functions</div>
+      </div>
+    </div>
+    <div class="live-badge"><div class="live-dot"></div> Live</div>
+  </header>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Services tracked</div>
+      <div class="metric-value" id="m-total">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Active incidents</div>
+      <div class="metric-value" id="m-incidents">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Fully operational</div>
+      <div class="metric-value ok" id="m-ok">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Degraded / down</div>
+      <div class="metric-value" id="m-bad">—</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Active incidents</div>
+    </div>
+    <div class="filters">
+      <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('critical',this)">Critical</button>
+      <button class="filter-btn" onclick="setFilter('major',this)">Major</button>
+      <button class="filter-btn" onclick="setFilter('minor',this)">Minor</button>
+    </div>
+    <div class="incident-list" id="incidents">
+      <div class="loading">Fetching live data...</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Service health overview</div>
+    </div>
+    <div class="company-grid" id="companies">
+    </div>
+  </div>
+
+  <footer>
+    <div class="last-updated" id="last-updated"></div>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadData()">Refresh</button>
+  </footer>
+
+</div>
+<script>
+  let allIncidents = [];
+  let activeFilter = 'all';
+
+  function impactOrder(i) { return ({critical:0,major:1,minor:2,none:3})[i] ?? 4; }
+
+  function impactLabel(i) { return ({critical:'Critical',major:'Major',minor:'Minor',none:'Operational'})[i] ?? i; }
+
+  function timeAgo(ts) {
+    if (!ts) return '';
+    const s = (Date.now() - new Date(ts)) / 1000;
+    if (s < 60)    return 'just now';
+    if (s < 3600)  return Math.round(s / 60) + 'm ago';
+    if (s < 86400) return Math.round(s / 3600) + 'h ago';
+    return Math.round(s / 86400) + 'd ago';
+  }
+
+  function setFilter(f, btn) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderIncidents();
+  }
+
+  function renderIncidents() {
+    const el = document.getElementById('incidents');
+    const list = activeFilter === 'all'
+      ? allIncidents
+      : allIncidents.filter(i => i.impact === activeFilter);
+
+    if (!list.length) {
+      el.innerHTML = `<div class="empty">No ${activeFilter === 'all' ? '' : activeFilter + ' '}incidents right now</div>`;
+      return;
+    }
+    el.innerHTML = list.map(inc => `
+      <div class="incident">
+        <div class="inc-dot ${inc.impact}"></div>
+        <div class="inc-body">
+          <div class="inc-name">${inc.name}</div>
+          <div class="inc-meta">${inc.company} &middot; ${inc.status.replace(/_/g,' ')} &middot; ${timeAgo(inc.created_at)}</div>
+        </div>
+        <div class="inc-badge ${inc.impact}">${impactLabel(inc.impact)}</div>
+      </div>
+    `).join('');
+  }
+
+  async function loadData() {
+    const btn = document.getElementById('refresh-btn');
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+    document.getElementById('incidents').innerHTML = '<div class="loading">Fetching live data...</div>';
+
+    try {
+      const res = await fetch('/.netlify/functions/status');
+      if (!res.ok) throw new Error('API error ' + res.status);
+      const data = await res.json();
+
+      allIncidents = [];
+      const companies = [];
+
+      for (const svc of data) {
+        const ind = svc.indicator;
+        let statusText = 'All systems operational';
+        let cssClass = 'ok';
+        if (ind === 'critical' || ind === 'major') { statusText = 'Service disruption'; cssClass = 'outage'; }
+        else if (ind === 'minor') { statusText = 'Partial degradation'; cssClass = 'degraded'; }
+        companies.push({ name: svc.name, statusText, cssClass });
+
+        for (const inc of svc.incidents) {
+          allIncidents.push({ ...inc, company: svc.name });
+        }
+      }
+
+      allIncidents.sort((a, b) => impactOrder(a.impact) - impactOrder(b.impact));
+
+      const incCount = allIncidents.length;
+      const badCount = companies.filter(c => c.cssClass !== 'ok').length;
+      const okCount  = companies.length - badCount;
+
+      document.getElementById('m-total').textContent     = companies.length;
+      const incEl = document.getElementById('m-incidents');
+      incEl.textContent  = incCount;
+      incEl.className    = 'metric-value ' + (incCount === 0 ? 'ok' : incCount < 3 ? 'warn' : 'crit');
+      document.getElementById('m-ok').textContent        = okCount;
+      const badEl = document.getElementById('m-bad');
+      badEl.textContent  = badCount;
+      badEl.className    = 'metric-value ' + (badCount === 0 ? 'ok' : badCount < 3 ? 'warn' : 'crit');
+
+      renderIncidents();
+
+      document.getElementById('companies').innerHTML = companies.map(c => `
+        <div class="company-card">
+          <div class="company-name">${c.name}</div>
+          <div class="company-status ${c.cssClass}">${c.statusText}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+
+    } catch (e) {
+      document.getElementById('incidents').innerHTML = `<div class="error">Failed to load data: ${e.message}. Make sure you've deployed to Netlify.</div>`;
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Refresh';
+  }
+
+  loadData();
+  setInterval(loadData, 60000);
+</script>
+</body>
+</html>
